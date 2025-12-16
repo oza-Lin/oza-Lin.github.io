@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>もじぴったん 検索ツール</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 2rem;
+      line-height: 1.6;
+    }
+    input {
+      font-size: 1.1rem;
+      padding: 0.4rem;
+      width: 12rem;
+    }
+    ul {
+      margin-top: 1rem;
+    }
+    li {
+      margin-bottom: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>もじぴったん 辞書検索</h1>
+
+  <p>
+    検索文字列を入力すると、<br>
+    <strong>その文字列を含む「読み」</strong>を持つ単語を表示します。
+  </p>
+
+  <input id="query" placeholder="例：あい" />
+
+  <ul id="results"></ul>
+
+  <script>
+    // 小書き仮名 → 通常仮名
+    const normalizeMap = {
+      'ぁ':'あ','ぃ':'い','ぅ':'う','ぇ':'え','ぉ':'お',
+      'ゃ':'や','ゅ':'ゆ','ょ':'よ','っ':'つ','ゎ':'わ'
+    };
+
+    function normalize(str) {
+      return str.split('').map(c => normalizeMap[c] || c).join('');
+    }
+
+    let dictionary = [];
+
+    // dictionary.json を読み込む（同じフォルダに置く）
+    fetch('dictionary.json')
+      .then(res => res.json())
+      .then(data => {
+        dictionary = data
+          .filter(e => e.reading && e.reading.length > 0)
+          .map(e => ({
+            reading: normalize(e.reading)
+          }));
+      });
+
+    const input = document.getElementById('query');
+    const results = document.getElementById('results');
+
+    input.addEventListener('input', () => {
+      const q = normalize(input.value.trim());
+      results.innerHTML = '';
+      if (!q) return;
+
+      const matches = dictionary
+        .filter(e => e.reading.includes(q))
+        .sort((a, b) => a.reading.length - b.reading.length);
+
+      for (const m of matches) {
+        const li = document.createElement('li');
+        li.textContent = m.reading;
+        results.appendChild(li);
+      }
+    });
+  </script>
+</body>
+</html>
