@@ -64,7 +64,7 @@
     input.addEventListener('input', () => {
       const q = normalize(input.value.trim());
       results.innerHTML = '';
-      if (!q) return;
+      if (!q || q.length < 2) return;
 
       const matches = dictionary
         .filter(e => e.reading.includes(q))
