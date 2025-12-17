@@ -42,7 +42,20 @@
     };
 
     function normalize(str) {
-      return str.split('').map(c => normalizeMap[c] || c).join('');
+      //return str.split('').map(c => normalizeMap[c] || c).join('');
+      return str
+    .split('')
+    // まずカタカナ → ひらがな
+    .map(c => {
+      const code = c.charCodeAt(0);
+      if (code >= 0x30A1 && code <= 0x30F6) {
+        return String.fromCharCode(code - 0x60);
+      }
+      return c;
+    })
+    // その後で小文字 → 大文字（すべてひらがなになった状態で適用）
+    .map(c => normalizeMap[c] || c)
+    .join('');
     }
 
     let dictionary = [];
