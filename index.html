@@ -16,9 +16,27 @@
     }
     ul {
       margin-top: 1rem;
+      padding-left: 0;
+      list-style: none; /* リストの・を消して見やすく */
     }
     li {
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #eee; /* 区切り線 */
+      padding-bottom: 0.5rem;
+    }
+    /* 見やすくするための装飾 */
+    .word-reading {
+      font-weight: bold;
+      color: #007bff;
+      margin-right: 0.5em;
+    }
+    .word-notation {
+      font-weight: bold;
+      margin-right: 0.5em;
+    }
+    .word-meaning {
+      color: #555;
+      font-size: 0.9em;
     }
   </style>
 </head>
@@ -42,32 +60,35 @@
     };
 
     function normalize(str) {
-      //return str.split('').map(c => normalizeMap[c] || c).join('');
       return str
-    .split('')
-    // まずカタカナ → ひらがな
-    .map(c => {
-      const code = c.charCodeAt(0);
-      if (code >= 0x30A1 && code <= 0x30F6) {
-        return String.fromCharCode(code - 0x60);
-      }
-      return c;
-    })
-    // その後で小文字 → 大文字（すべてひらがなになった状態で適用）
-    .map(c => normalizeMap[c] || c)
-    .join('');
+        .split('')
+        // カタカナ → ひらがな
+        .map(c => {
+          const code = c.charCodeAt(0);
+          if (code >= 0x30A1 && code <= 0x30F6) {
+            return String.fromCharCode(code - 0x60);
+          }
+          return c;
+        })
+        // 小文字 → 大文字
+        .map(c => normalizeMap[c] || c)
+        .join('');
     }
 
     let dictionary = [];
 
-    // dictionary.json を読み込む（同じフォルダに置く）
+    // dictionary.json を読み込む
     fetch('dictionary.json')
       .then(res => res.json())
       .then(data => {
+        // ▼▼▼ ここを変更しました ▼▼▼
         dictionary = data
           .filter(e => e.reading && e.reading.length > 0)
           .map(e => ({
-            reading: normalize(e.reading)
+            searchKey: normalize(e.reading), // 検索用の正規化された読み（あいであまん）
+            reading: e.reading,              // 表示用の元の読み（アイデアマン）
+            notation: e.notation,            // 表記（idea man / 漢字など）
+            meaning: e.meaning               // 意味
           }));
       });
 
@@ -77,15 +98,26 @@
     input.addEventListener('input', () => {
       const q = normalize(input.value.trim());
       results.innerHTML = '';
+      
+      // 2文字未満なら検索しない
       if (!q || q.length < 2) return;
 
+      // ▼▼▼ 検索・表示処理を変更しました ▼▼▼
       const matches = dictionary
-        .filter(e => e.reading.includes(q))
-        .sort((a, b) => a.reading.length - b.reading.length);
+        .filter(e => e.searchKey.includes(q)) // searchKey(正規化済み)で検索
+        .sort((a, b) => a.searchKey.length - b.searchKey.length);
 
       for (const m of matches) {
         const li = document.createElement('li');
-        li.textContent = m.reading;
+        
+        // 読みやすいようにHTMLタグを含めて整形
+        // 例: アイデアマン 【idea man】 いい案をよく出す人。
+        li.innerHTML = `
+          <span class="word-reading">${m.reading}</span>
+          <span class="word-notation">【${m.notation || '-'}】</span>
+          <span class="word-meaning">${m.meaning || ''}</span>
+        `;
+        
         results.appendChild(li);
       }
     });
