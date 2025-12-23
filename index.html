@@ -37,7 +37,16 @@
     .word-meaning {
       color: #555;
       font-size: 0.9em;
-    }
+    }/* 文字を足して別の言葉になる単語用のスタイル */
+.extendable {
+  background-color: #e0f7fa; /* 水色っぽい背景 */
+  border-left: 4px solid #00acc1; /* 左に強調線 */
+  padding-left: 0.5rem;
+}
+.extendable::after {
+  content: ' 🔗'; /* リンクのようなアイコンをつけてみる */
+  font-size: 0.8em;
+}
   </style>
 </head>
 <body>
@@ -75,52 +84,82 @@
         .join('');
     }
 
-    let dictionary = [];
 
-    // dictionary.json を読み込む
-    fetch('dictionary.json')
-      .then(res => res.json())
-      .then(data => {
-        // ▼▼▼ ここを変更しました ▼▼▼
-        dictionary = data
-          .filter(e => e.reading && e.reading.length > 0)
-          .map(e => ({
-            searchKey: normalize(e.reading), // 検索用の正規化された読み（あいであまん）
-            reading: e.reading,              // 表示用の元の読み（アイデアマン）
-            notation: e.notation,            // 表記（idea man / 漢字など）
-            meaning: e.meaning               // 意味
-          }));
-      });
+    // ...（normalize関数などはそのまま）...
 
-    const input = document.getElementById('query');
-    const results = document.getElementById('results');
+let dictionary = [];
 
-    input.addEventListener('input', () => {
-      const q = normalize(input.value.trim());
-      results.innerHTML = '';
-      
-      // 2文字未満なら検索しない
-      if (!q || q.length < 2) return;
+fetch('dictionary.json')
+  .then(res => res.json())
+  .then(data => {
+    // 1. まず基本データを整形
+    dictionary = data
+      .filter(e => e.reading && e.reading.length > 0)
+      .map(e => ({
+        searchKey: normalize(e.reading),
+        reading: e.reading,
+        notation: e.notation,
+        meaning: e.meaning,
+        isExtendable: false // 初期値はfalse
+      }));
 
-      // ▼▼▼ 検索・表示処理を変更しました ▼▼▼
-      const matches = dictionary
-        .filter(e => e.searchKey.includes(q)) // searchKey(正規化済み)で検索
-        .sort((a, b) => a.searchKey.length - b.searchKey.length);
-
-      for (const m of matches) {
-        const li = document.createElement('li');
-        
-        // 読みやすいようにHTMLタグを含めて整形
-        // 例: アイデアマン 【idea man】 いい案をよく出す人。
-        li.innerHTML = `
-          <span class="word-reading">${m.reading}</span>
-          <span class="word-notation">【${m.notation || '-'}】</span>
-          <span class="word-meaning">${m.meaning || ''}</span>
-        `;
-        
-        results.appendChild(li);
-      }
+    // 2. 高速検索用のマップを作成 (key: 読み, value: オブジェクト)
+    const dictionaryMap = new Map();
+    dictionary.forEach(item => {
+      dictionaryMap.set(item.searchKey, item);
     });
+
+    // 3. 「逆引き」でつながりを事前計算
+    // 例：「りんごあめ」があるなら、「りんご」の isExtendable を true にする
+    dictionary.forEach(longWord => {
+      const k = longWord.searchKey;
+      if (k.length < 2) return; // 1文字の単語からは削れないのでスキップ
+
+      // 末尾を1文字削る（例：りんごあめ → りんご）
+      const parentKey = k.slice(0, -1);
+
+      // 削った単語が辞書に存在すれば、その「短い方の単語」にフラグを立てる
+      if (dictionaryMap.has(parentKey)) {
+        dictionaryMap.get(parentKey).isExtendable = true;
+      }
+      
+      // 【応用】もし「頭に1文字足す」も判定したい場合はここで行う
+      // const suffixKey = k.slice(1); 
+      // if (dictionaryMap.has(suffixKey)) ...
+    });
+  });
+
+const input = document.getElementById('query');
+const results = document.getElementById('results');
+
+input.addEventListener('input', () => {
+  const q = normalize(input.value.trim());
+  results.innerHTML = '';
+  
+  if (!q || q.length < 2) return;
+
+  const matches = dictionary
+    .filter(e => e.searchKey.includes(q))
+    .sort((a, b) => a.searchKey.length - b.searchKey.length);
+
+  for (const m of matches) {
+    const li = document.createElement('li');
+    
+    // フラグが立っていればクラスを付与
+    if (m.isExtendable) {
+      li.classList.add('extendable');
+      li.title = "あとに1文字足すと、別の言葉になります"; // ホバー時のツールチップ
+    }
+
+    li.innerHTML = `
+      <span class="word-reading">${m.reading}</span>
+      <span class="word-notation">【${m.notation || '-'}】</span>
+      <span class="word-meaning">${m.meaning || ''}</span>
+    `;
+    
+    results.appendChild(li);
+  }
+});
   </script>
 </body>
 </html>
