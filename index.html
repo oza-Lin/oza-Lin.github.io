@@ -37,15 +37,39 @@
     .word-meaning {
       color: #555;
       font-size: 0.9em;
-    }/* 文字を足して別の言葉になる単語用のスタイル */
-.extendable {
-  background-color: #e0f7fa; /* 水色っぽい背景 */
-  border-left: 4px solid #00acc1; /* 左に強調線 */
-  padding-left: 0.5rem;
+    }
+    /* 1. 後ろに続く（Next）: 水色 */
+.extend-next {
+  background-color: #e1f5fe;
+  border-left-color: #03a9f4;
 }
-.extendable::after {
-  content: ' 🔗'; /* リンクのようなアイコンをつけてみる */
-  font-size: 0.8em;
+.extend-next::after {
+  content: ' ➡';
+  color: #03a9f4;
+}
+
+/* 2. 前に付く（Prev）: 緑色 */
+.extend-prev {
+  background-color: #e8f5e9;
+  border-left-color: #4caf50;
+}
+.extend-prev::before {
+  content: '⬅ ';
+  color: #4caf50;
+}
+
+/* 3. 両方（Both）: オレンジ/ピンク */
+.extend-both {
+  background-color: #fff3e0;
+  border-left-color: #ff9800;
+}
+.extend-both::before {
+  content: '⬅ ';
+  color: #ff9800;
+}
+.extend-both::after {
+  content: ' ➡';
+  color: #ff9800;
 }
   </style>
 </head>
@@ -88,78 +112,94 @@
     // ...（normalize関数などはそのまま）...
 
 let dictionary = [];
-
-fetch('dictionary.json')
-  .then(res => res.json())
-  .then(data => {
-    // 1. まず基本データを整形
-    dictionary = data
-      .filter(e => e.reading && e.reading.length > 0)
-      .map(e => ({
-        searchKey: normalize(e.reading),
-        reading: e.reading,
-        notation: e.notation,
-        meaning: e.meaning,
-        isExtendable: false // 初期値はfalse
-      }));
-
-    // 2. 高速検索用のマップを作成 (key: 読み, value: オブジェクト)
+    // 高速検索用マップ (key: 読み, value: オブジェクトの配列)
     const dictionaryMap = new Map();
-    dictionary.forEach(item => {
-      dictionaryMap.set(item.searchKey, item);
-    });
+    
+    fetch('dictionary.json')
+      .then(res => res.json())
+      .then(data => {
+        // 1. データ整形 & マップ登録
+        dictionary = data
+          .filter(e => e.reading && e.reading.length > 0)
+          .map(e => {
+            const item = {
+              searchKey: normalize(e.reading),
+              reading: e.reading,
+              notation: e.notation,
+              meaning: e.meaning,
+              // ▼ 2つのフラグを用意（初期値false）
+              canExtendNext: false, // 後ろに足せる
+              canExtendPrev: false  // 前に足せる
+            };
+            return item;
+          });
 
-    // 3. 「逆引き」でつながりを事前計算
-    // 例：「りんごあめ」があるなら、「りんご」の isExtendable を true にする
-    dictionary.forEach(longWord => {
-      const k = longWord.searchKey;
-      if (k.length < 2) return; // 1文字の単語からは削れないのでスキップ
+        // マップに登録（同音異義語対応のため配列に入れる）
+        dictionary.forEach(item => {
+          if (!dictionaryMap.has(item.searchKey)) {
+            dictionaryMap.set(item.searchKey, []);
+          }
+          dictionaryMap.get(item.searchKey).push(item);
+        });
 
-      // 末尾を1文字削る（例：りんごあめ → りんご）
-      const parentKey = k.slice(0, -1);
+        // 2. 「逆引き」でつながりを事前計算
+        dictionary.forEach(longWord => {
+          const k = longWord.searchKey;
+          if (k.length < 2) return; // 1文字からは削れないのでスキップ
 
-      // 削った単語が辞書に存在すれば、その「短い方の単語」にフラグを立てる
-      if (dictionaryMap.has(parentKey)) {
-        dictionaryMap.get(parentKey).isExtendable = true;
+          // --- パターンA: 後ろにつながるか？ ---
+          // 長い単語(りんごあ) の「末尾」を削ると、短い単語(りんご)になる
+          const subNext = k.slice(0, -1);
+          if (dictionaryMap.has(subNext)) {
+            // 短い単語たちに「後ろOK」フラグを立てる
+            dictionaryMap.get(subNext).forEach(w => w.canExtendNext = true);
+          }
+
+          // --- パターンB: 前につながるか？ ---
+          // 長い単語(おりんご) の「先頭」を削ると、短い単語(りんご)になる
+          const subPrev = k.slice(1);
+          if (dictionaryMap.has(subPrev)) {
+            // 短い単語たちに「前OK」フラグを立てる
+            dictionaryMap.get(subPrev).forEach(w => w.canExtendPrev = true);
+          }
+        });
+      });
+
+    const input = document.getElementById('query');
+    const results = document.getElementById('results');
+
+    input.addEventListener('input', () => {
+      const q = normalize(input.value.trim());
+      results.innerHTML = '';
+      if (!q || q.length < 2) return;
+
+      const matches = dictionary
+        .filter(e => e.searchKey.includes(q))
+        .sort((a, b) => a.searchKey.length - b.searchKey.length);
+
+      for (const m of matches) {
+        const li = document.createElement('li');
+
+        // ▼ フラグの状態を見てクラスを振り分け
+        if (m.canExtendPrev && m.canExtendNext) {
+          li.classList.add('extend-both');
+          li.title = "前にも後ろにも、文字を足せます";
+        } else if (m.canExtendNext) {
+          li.classList.add('extend-next');
+          li.title = "後ろに文字を足せます";
+        } else if (m.canExtendPrev) {
+          li.classList.add('extend-prev');
+          li.title = "前に文字を足せます";
+        }
+
+        li.innerHTML = `
+          <span class="word-reading">${m.reading}</span>
+          <span class="word-notation">【${m.notation || '-'}】</span>
+          <span class="word-meaning">${m.meaning || ''}</span>
+        `;
+        results.appendChild(li);
       }
-      
-      // 【応用】もし「頭に1文字足す」も判定したい場合はここで行う
-      // const suffixKey = k.slice(1); 
-      // if (dictionaryMap.has(suffixKey)) ...
     });
-  });
-
-const input = document.getElementById('query');
-const results = document.getElementById('results');
-
-input.addEventListener('input', () => {
-  const q = normalize(input.value.trim());
-  results.innerHTML = '';
-  
-  if (!q || q.length < 2) return;
-
-  const matches = dictionary
-    .filter(e => e.searchKey.includes(q))
-    .sort((a, b) => a.searchKey.length - b.searchKey.length);
-
-  for (const m of matches) {
-    const li = document.createElement('li');
-    
-    // フラグが立っていればクラスを付与
-    if (m.isExtendable) {
-      li.classList.add('extendable');
-      li.title = "あとに1文字足すと、別の言葉になります"; // ホバー時のツールチップ
-    }
-
-    li.innerHTML = `
-      <span class="word-reading">${m.reading}</span>
-      <span class="word-notation">【${m.notation || '-'}】</span>
-      <span class="word-meaning">${m.meaning || ''}</span>
-    `;
-    
-    results.appendChild(li);
-  }
-});
   </script>
 </body>
 </html>
