@@ -5,15 +5,11 @@
   <title>もじぴったん 検索ツール</title>
   <style>
     body {
-    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
-    margin: 1rem; /* スマホだと2remは広すぎるので少し狭める */
-    line-height: 1.6;
-    background-color: #f9f9f9; /* 背景を少しグレーにして白を目立たせる */
-    color: #333;
-  }
-
-  /* 入力欄のスマホ最適化 */
-  input {
+      font-family: system-ui, sans-serif;
+      margin: 2rem;
+      line-height: 1.6;
+    }
+input {
     font-size: 16px; /* 【重要】iOSで勝手にズームされないサイズ */
     padding: 12px 15px; /* 指で押しやすいように上下の余白をたっぷり取る */
     width: 100%;     /* 画面幅いっぱいに */
@@ -23,57 +19,56 @@
     margin-bottom: 1rem;
     box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* うっすら影をつける */
   }
-
-  /* リスト全体 */
-  ul {
-    margin-top: 0.5rem;
-    padding-left: 0;
-    list-style: none;
-  }
-
-  /* 各リスト項目 */
-  li {
-    background-color: #fff; /* 背景を白くしてカードっぽく */
-    margin-bottom: 0.8rem;  /* 下との間隔を広げる */
-    padding: 1rem;          /* 内側の余白を大きく取って見やすく */
-    border-radius: 6px;     /* カードの角丸 */
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 少し浮かせる */
-    
-    /* 前回追加したボーダー設定のベース */
-    border-left: 6px solid #ddd; /* デフォルトはグレー */
-    transition: transform 0.1s;
-  }
-  /* --- 文字サイズの調整 --- */
-  
-  /* 読み（メイン）: 大きく太く */
-  .word-reading {
-    display: block; /* 改行して一行使う */
-    font-size: 1.4rem;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 0.2rem;
-  }
-  
-  /* 表記: 少し控えめに */
-  .word-notation {
-    font-size: 1rem;
-    font-weight: bold;
-    color: #555;
-    margin-right: 0.5rem;
-  }
-  
-  /* 意味: 普通のサイズ */
-  .word-meaning {
-    font-size: 0.95rem;
-    color: #666;
-    display: inline-block; /* 必要に応じて改行などの制御をしやすく */
-  }
-    /* 見やすくするための装飾 */
-    .word-reading {
-      font-weight: bold;
-      color: #007bff;
-      margin-right: 0.5em;
+    ul {
+      margin-top: 1rem;
+      padding-left: 0;
+      list-style: none; /* リストの・を消して見やすく */
     }
+    li {
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #eee; /* 区切り線 */
+      padding-bottom: 0.5rem;
+    }
+    /* 文字チップのスタイル */
+.char-chip {
+  display: inline-block;
+  padding: 0px 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  transition: all 0.2s;
+}
+
+/* 後ろに足す文字（青系） */
+.chip-next {
+  background-color: #e1f5fe;
+  color: #0288d1;
+  border-color: #b3e5fc;
+}
+.chip-next:hover {
+  background-color: #b3e5fc;
+}
+
+/* 前に足す文字（緑系） */
+.chip-prev {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border-color: #c8e6c9;
+}
+.chip-prev:hover {
+  background-color: #c8e6c9;
+}
+
+/* 単語自体の表示調整 */
+.word-reading {
+  font-weight: bold;
+  font-size: 1.1em;
+  margin: 0 0.5rem;
+}
+    /* 見やすくするための装飾 */
     .word-notation {
       font-weight: bold;
       margin-right: 0.5em;
@@ -154,32 +149,36 @@
     }
 
 
-    // ...（normalize関数などはそのまま）...
+// ...（normalize関数などは同じ）...
 
-let dictionary = [];
-    // 高速検索用マップ (key: 読み, value: オブジェクトの配列)
+    let dictionary = [];
     const dictionaryMap = new Map();
-    
+
+    // クリックしたチップの文字を検索ボックスに入れて再検索する関数
+    function searchWith(text) {
+      const input = document.getElementById('query');
+      input.value = text;
+      // inputイベントを手動で発火させて検索を実行
+      input.dispatchEvent(new Event('input'));
+    }
+
     fetch('dictionary.json')
       .then(res => res.json())
       .then(data => {
-        // 1. データ整形 & マップ登録
+        // 1. データ初期化
         dictionary = data
           .filter(e => e.reading && e.reading.length > 0)
-          .map(e => {
-            const item = {
-              searchKey: normalize(e.reading),
-              reading: e.reading,
-              notation: e.notation,
-              meaning: e.meaning,
-              // ▼ 2つのフラグを用意（初期値false）
-              canExtendNext: false, // 後ろに足せる
-              canExtendPrev: false  // 前に足せる
-            };
-            return item;
-          });
+          .map(e => ({
+            searchKey: normalize(e.reading),
+            reading: e.reading,
+            notation: e.notation,
+            meaning: e.meaning,
+            // ▼ Setを使って「文字のリスト」を保存する形に変更
+            nextChars: new Set(), // 後ろに足せる文字リスト
+            prevChars: new Set()  // 前に足せる文字リスト
+          }));
 
-        // マップに登録（同音異義語対応のため配列に入れる）
+        // マップ登録
         dictionary.forEach(item => {
           if (!dictionaryMap.has(item.searchKey)) {
             dictionaryMap.set(item.searchKey, []);
@@ -187,25 +186,31 @@ let dictionary = [];
           dictionaryMap.get(item.searchKey).push(item);
         });
 
-        // 2. 「逆引き」でつながりを事前計算
+        // 2. 「逆引き」で文字を収集
         dictionary.forEach(longWord => {
           const k = longWord.searchKey;
-          if (k.length < 2) return; // 1文字からは削れないのでスキップ
+          if (k.length < 2) return;
 
-          // --- パターンA: 後ろにつながるか？ ---
-          // 長い単語(りんごあ) の「末尾」を削ると、短い単語(りんご)になる
+          // --- パターンA: 後ろにつながる文字を特定 ---
+          // 例: longWord="りんごあ" (k) -> parent="りんご" (subNext)
+          // 差分文字は kの最後の文字 ("あ")
           const subNext = k.slice(0, -1);
+          const addedCharNext = k.slice(-1); // 末尾の1文字
+
           if (dictionaryMap.has(subNext)) {
-            // 短い単語たちに「後ろOK」フラグを立てる
-            dictionaryMap.get(subNext).forEach(w => w.canExtendNext = true);
+            // "りんご" データ達の nextChars に "あ" を追加
+            dictionaryMap.get(subNext).forEach(w => w.nextChars.add(addedCharNext));
           }
 
-          // --- パターンB: 前につながるか？ ---
-          // 長い単語(おりんご) の「先頭」を削ると、短い単語(りんご)になる
+          // --- パターンB: 前につながる文字を特定 ---
+          // 例: longWord="おりんご" (k) -> parent="りんご" (subPrev)
+          // 差分文字は kの最初の文字 ("お")
           const subPrev = k.slice(1);
+          const addedCharPrev = k.slice(0, 1); // 先頭の1文字
+
           if (dictionaryMap.has(subPrev)) {
-            // 短い単語たちに「前OK」フラグを立てる
-            dictionaryMap.get(subPrev).forEach(w => w.canExtendPrev = true);
+            // "りんご" データ達の prevChars に "お" を追加
+            dictionaryMap.get(subPrev).forEach(w => w.prevChars.add(addedCharPrev));
           }
         });
       });
@@ -224,24 +229,36 @@ let dictionary = [];
 
       for (const m of matches) {
         const li = document.createElement('li');
+        
+        // --- チップ生成ロジック ---
+        
+        // 前の文字リスト (Set -> Array -> Sort -> HTML)
+        const prevTags = Array.from(m.prevChars).sort().map(char => {
+          // クリックしたら「その文字 + 今の単語」で検索
+          // normalize前の単語を使うと複雑になるので、ここでは簡易的に searchKey を結合
+          const nextQuery = char + m.searchKey;
+          return `<span class="char-chip chip-prev" onclick="searchWith('${nextQuery}')">${char}</span>`;
+        }).join('');
 
-        // ▼ フラグの状態を見てクラスを振り分け
-        if (m.canExtendPrev && m.canExtendNext) {
-          li.classList.add('extend-both');
-          li.title = "前にも後ろにも、文字を足せます";
-        } else if (m.canExtendNext) {
-          li.classList.add('extend-next');
-          li.title = "後ろに文字を足せます";
-        } else if (m.canExtendPrev) {
-          li.classList.add('extend-prev');
-          li.title = "前に文字を足せます";
-        }
+        // 後ろの文字リスト
+        const nextTags = Array.from(m.nextChars).sort().map(char => {
+          // クリックしたら「今の単語 + その文字」で検索
+          const nextQuery = m.searchKey + char;
+          return `<span class="char-chip chip-next" onclick="searchWith('${nextQuery}')">${char}</span>`;
+        }).join('');
 
+        // 表示の組み立て: [前チップ] 単語 [後チップ]
         li.innerHTML = `
-          <span class="word-reading">${m.reading}</span>
-          <span class="word-notation">【${m.notation || '-'}】</span>
-          <span class="word-meaning">${m.meaning || ''}</span>
+          <div style="display: flex; align-items: center; flex-wrap: wrap;">
+            <div>${prevTags}</div>
+            <span class="word-reading">${m.reading}</span>
+            <div>${nextTags}</div>
+          </div>
+          <div style="font-size: 0.85rem; color: #666; margin-left: 0.5rem;">
+            【${m.notation || '-'}】 ${m.meaning || ''}
+          </div>
         `;
+        
         results.appendChild(li);
       }
     });
