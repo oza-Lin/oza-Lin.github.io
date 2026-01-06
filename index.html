@@ -10,14 +10,11 @@
       line-height: 1.6;
     }
 input {
-    font-size: 16px; /* 【重要】iOSで勝手にズームされないサイズ */
-    padding: 12px 15px; /* 指で押しやすいように上下の余白をたっぷり取る */
-    width: 100%;     /* 画面幅いっぱいに */
-    box-sizing: border-box; /* paddingを含めて100%にする設定 */
-    border: 1px solid #ccc;
-    border-radius: 8px; /* 角を丸くしてモダンに */
-    margin-bottom: 1rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* うっすら影をつける */
+      font-size: 16px; /* 【重要】ここを16px以上にする */
+      padding: 0.4rem;
+      width: 12rem;
+      /* iOSでの見た目の崩れを防ぐための追加設定 */
+      transform: scale(1);
   }
     ul {
       margin-top: 1rem;
