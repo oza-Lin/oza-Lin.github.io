@@ -5,25 +5,69 @@
   <title>もじぴったん 検索ツール</title>
   <style>
     body {
-      font-family: system-ui, sans-serif;
-      margin: 2rem;
-      line-height: 1.6;
-    }
-    input {
-      font-size: 1.1rem;
-      padding: 0.4rem;
-      width: 12rem;
-    }
-    ul {
-      margin-top: 1rem;
-      padding-left: 0;
-      list-style: none; /* リストの・を消して見やすく */
-    }
-    li {
-      margin-bottom: 0.5rem;
-      border-bottom: 1px solid #eee; /* 区切り線 */
-      padding-bottom: 0.5rem;
-    }
+    font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", sans-serif;
+    margin: 1rem; /* スマホだと2remは広すぎるので少し狭める */
+    line-height: 1.6;
+    background-color: #f9f9f9; /* 背景を少しグレーにして白を目立たせる */
+    color: #333;
+  }
+
+  /* 入力欄のスマホ最適化 */
+  input {
+    font-size: 16px; /* 【重要】iOSで勝手にズームされないサイズ */
+    padding: 12px 15px; /* 指で押しやすいように上下の余白をたっぷり取る */
+    width: 100%;     /* 画面幅いっぱいに */
+    box-sizing: border-box; /* paddingを含めて100%にする設定 */
+    border: 1px solid #ccc;
+    border-radius: 8px; /* 角を丸くしてモダンに */
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05); /* うっすら影をつける */
+  }
+
+  /* リスト全体 */
+  ul {
+    margin-top: 0.5rem;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  /* 各リスト項目 */
+  li {
+    background-color: #fff; /* 背景を白くしてカードっぽく */
+    margin-bottom: 0.8rem;  /* 下との間隔を広げる */
+    padding: 1rem;          /* 内側の余白を大きく取って見やすく */
+    border-radius: 6px;     /* カードの角丸 */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 少し浮かせる */
+    
+    /* 前回追加したボーダー設定のベース */
+    border-left: 6px solid #ddd; /* デフォルトはグレー */
+    transition: transform 0.1s;
+  }
+  /* --- 文字サイズの調整 --- */
+  
+  /* 読み（メイン）: 大きく太く */
+  .word-reading {
+    display: block; /* 改行して一行使う */
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 0.2rem;
+  }
+  
+  /* 表記: 少し控えめに */
+  .word-notation {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #555;
+    margin-right: 0.5rem;
+  }
+  
+  /* 意味: 普通のサイズ */
+  .word-meaning {
+    font-size: 0.95rem;
+    color: #666;
+    display: inline-block; /* 必要に応じて改行などの制御をしやすく */
+  }
     /* 見やすくするための装飾 */
     .word-reading {
       font-weight: bold;
